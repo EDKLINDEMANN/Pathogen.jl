@@ -4,7 +4,6 @@ module Pathogen
   using Distributed,
       DataFrames,
       Distributions,
-      RecipesBase,
       Logging,
       StatsBase,
       Statistics,
@@ -12,7 +11,6 @@ module Pathogen
       LinearAlgebra,
       OnlineStats
 
-  import RecipesBase.plot
   import ProgressMeter.next!
 
   # Types
@@ -37,6 +35,8 @@ module Pathogen
   # Functions
   include("functions/_pathway_from.jl")
   include("functions/_pathway_to.jl")
+  include("functions/_count_by_state.jl")
+  include("functions/_generate_tree.jl")
   include("functions/_accept.jl")
   include("functions/_bounds.jl")
   include("functions/generate.jl")
@@ -49,12 +49,6 @@ module Pathogen
   include("functions/logpriors.jl")
   include("functions/start!.jl")
   include("functions/iterate!.jl")
-  include("functions/_count_by_state.jl")
-  include("functions/_ids_by_state.jl")
-  include("functions/_epidemic_curve.jl")
-  include("functions/_plot_population.jl")
-  include("functions/_plot_pathway.jl")
-  include("functions/plot.jl")
 
   export
     SEIR, SEI, SIR, SI,
