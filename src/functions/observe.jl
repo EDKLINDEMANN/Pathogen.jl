@@ -7,9 +7,9 @@ function observe(events::Events{T},
   if force
     for i in findall(.!isnan.(events.infection))
       if events.infection[i] == -Inf
-        infection[i] = -Inf
+        infection[i] = NaN
         if events.removal[i] == -Inf
-          removal[i] = -Inf
+          removal[i] = NaN
         end
       elseif isnan(events.removal[i])
         infection[i] = events.infection[i] + rand(delay_infection)
@@ -25,9 +25,9 @@ function observe(events::Events{T},
   else
     for i in findall(.!isnan.(events.infection))
       if events.infection[i] == -Inf
-        infection[i] = -Inf
+        infection[i] = NaN
         if events.removal == -Inf
-          removal[i] = -Inf
+          removal[i] = NaN
         end
       else
         infection_delay = rand(delay_infection)
