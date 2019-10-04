@@ -2,5 +2,5 @@
 *.jl.*.cov
 *.jl.mem
 .ipynb_checkpoints
-testing/
+testfile.jl
 .DS_Store

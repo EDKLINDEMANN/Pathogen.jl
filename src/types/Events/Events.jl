@@ -3,19 +3,20 @@ mutable struct Events{T <: EpidemicModel}
   infection::Vector{Float64}
   removal::Vector{Float64}
   individuals::Int64
+  start_time::Float64
 
-  function Events{T}(e::V, i::V, r::V) where {T <: SEIR, V <: Vector{Float64}}
+  function Events{T}(e::V, i::V, r::V; start_time::Float64=0.0) where {T <: SEIR, V <: Vector{Float64}, F <: Float64}
     if length(unique((length.([e; i; r])))) != 1
       @error "Length of event time vectors must be equal"
     end
-    return new{T}(e, i, r, length(i))
+    return new{T}(e, i, r, length(i), start_time)
   end
 
-  function Events{T}(n_ids::Int64) where T <: SEIR
-    return Events{T}(fill(NaN, n_ids), fill(NaN, n_ids), fill(NaN, n_ids))
+  function Events{T}(n_ids::Int64; start_time::Float64=0.0) where T <: SEIR
+    return Events{T}(fill(NaN, n_ids), fill(NaN, n_ids), fill(NaN, n_ids), start_time=start_time)
   end
 
-  function Events{T}(e::V, i::V) where {T <: SEI, V <: Vector{Float64}}
+  function Events{T}(e::V, i::V; start_time::Float64=0.0) where {T <: SEI, V <: Vector{Float64}}
     if length(unique((length.([e; i])))) != 1
       @error "Length of event time vectors must be equal"
     end
@@ -23,14 +24,15 @@ mutable struct Events{T <: EpidemicModel}
     x.exposure = e
     x.infection = i
     x.individuals = length(i)
+    x.start_time = start_time
     return x
   end
 
-  function Events{T}(n_ids::Int64) where T <: SEI
-    return Events{T}(fill(NaN, n_ids), fill(NaN, n_ids))
+  function Events{T}(n_ids::Int64; start_time::Float64=0.0) where T <: SEI
+    return Events{T}(fill(NaN, n_ids), fill(NaN, n_ids), start_time=start_time)
   end
 
-  function Events{T}(i::V, r::V) where {T <: SIR, V <: Vector{Float64}}
+  function Events{T}(i::V, r::V; start_time::Float64=0.0) where {T <: SIR, V <: Vector{Float64}}
     if length(unique((length.([i; r])))) != 1
       @error "Length of event time vectors must be equal"
     end
@@ -38,38 +40,40 @@ mutable struct Events{T <: EpidemicModel}
     x.infection = i
     x.removal = r
     x.individuals = length(i)
+    x.start_time = start_time
     return x
   end
 
-  function Events{T}(n_ids::Int64) where T <: SIR
-    return Events{T}(fill(NaN, n_ids), fill(NaN, n_ids))
+  function Events{T}(n_ids::Int64; start_time::Float64=0.0) where T <: SIR
+    return Events{T}(fill(NaN, n_ids), fill(NaN, n_ids), start_time = start_time)
   end
 
-  function Events{T}(i::V) where {T <: SI, V <: Vector{Float64}}
+  function Events{T}(i::V; start_time::Float64=0.0) where {T <: SI, V <: Vector{Float64}}
     x = new{T}()
     x.infection = i
     x.individuals = length(i)
+    x.start_time = start_time
     return x
   end
 
-  function Events{T}(n_ids::Int64) where T <: SI
-    return Events{T}(fill(NaN, n_ids))
+  function Events{T}(n_ids::Int64; start_time::Float64=0.0) where T <: SI
+    return Events{T}(fill(NaN, n_ids), start_time = start_time)
   end
 
-  function Events{T}(a::Array{Float64,2}) where T <: EpidemicModel
+  function Events{T}(a::Array{Float64,2}; start_time::Float64=0.0) where T <: EpidemicModel
     if size(a, 2) == 4
-      return Events{T}(a[:,1], a[:,2], a[:,3], a[:,4])
+      return Events{T}(a[:,1], a[:,2], a[:,3], a[:,4], start_time = start_time)
     elseif size(a, 2) == 3
-      return Events{T}(a[:,1], a[:,2], a[:,3])
+      return Events{T}(a[:,1], a[:,2], a[:,3], start_time = start_time)
     elseif size(a, 2) == 2
-      return Events{T}(a[:,1], a[:,2])
+      return Events{T}(a[:,1], a[:,2], start_time = start_time)
     else
       @error "Invalid array size for construction of an $(Events{T}) object"
     end
   end
 
-  function Events{T}(x::Vector{DiseaseState}) where T <: EpidemicModel
-    events = Events{T}(length(x))
+  function Events{T}(x::Vector{DiseaseState}; start_time::Float64=0.0) where T <: EpidemicModel
+    events = Events{T}(length(x), start_time = start_time)
     for i = 1:length(x)
       if x[i] in _state_progressions[T]
         for j = _state_progressions[T][2:findfirst(Ref(x[i]) .== _state_progressions[T])]

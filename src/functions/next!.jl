@@ -1,6 +1,6 @@
 function next!(s::Simulation{T}) where T <: EpidemicModel
-  event = generate(Event, s.event_rates, s.time)
-  if event.time < s.time
+  event = generate(Event, s.event_rates, s.current_time)
+  if event.time < s.current_time
     @error "Time of a new event must be >= that of the previous event"
   elseif event.time < Inf
     update!(s.events, event)
@@ -20,7 +20,7 @@ function next!(s::Simulation{T}) where T <: EpidemicModel
     s.iterations += 1
   end
   # Update simulation time
-  s.time = event.time
+  s.current_time = event.time
   # Return updated Simulation object
   return s
 end

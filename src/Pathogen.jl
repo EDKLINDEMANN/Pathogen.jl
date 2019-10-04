@@ -9,7 +9,8 @@ module Pathogen
       Statistics,
       ProgressMeter,
       LinearAlgebra,
-      OnlineStats
+      OnlineStats,
+      PhyloModels
 
   import ProgressMeter.next!
 
@@ -36,10 +37,10 @@ module Pathogen
   include("functions/_pathway_from.jl")
   include("functions/_pathway_to.jl")
   include("functions/_count_by_state.jl")
-  include("functions/_generate_tree.jl")
   include("functions/_accept.jl")
   include("functions/_bounds.jl")
   include("functions/generate.jl")
+  include("functions/generate_tree.jl")
   include("functions/initialize.jl")
   include("functions/observe.jl")
   include("functions/update!.jl")
@@ -49,6 +50,10 @@ module Pathogen
   include("functions/logpriors.jl")
   include("functions/start!.jl")
   include("functions/iterate!.jl")
+
+  for name in names(PhyloModels)
+    @eval export $(name)
+  end
 
   export
     SEIR, SEI, SIR, SI,
@@ -62,5 +67,5 @@ module Pathogen
     Events, EventObservations, EventExtents,
     observe,
     MCMC, start!, iterate!,
-    plot
+    generate_tree
 end

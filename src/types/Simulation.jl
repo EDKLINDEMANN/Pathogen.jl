@@ -1,5 +1,6 @@
 mutable struct Simulation{T <: EpidemicModel}
-  time::Float64
+  start_time::Float64
+  current_time::Float64
   iterations::Int64
   population::Population
   risk_functions::RiskFunctions{T}
@@ -18,7 +19,7 @@ mutable struct Simulation{T <: EpidemicModel}
     rates = initialize(EventRates, tr, states, pop, rf, rp)
     events = Events{T}(pop.individuals)
     net = TransmissionNetwork(pop.individuals)
-    return new{T}(0.0, 0, pop, rf, rp, states, tr, rates, events, net)
+    return new{T}(0.0, 0.0, 0, pop, rf, rp, states, tr, rates, events, net)
   end
 
   function Simulation(pop::Population,
@@ -34,9 +35,9 @@ mutable struct Simulation{T <: EpidemicModel}
     end
     tr = initialize(TransmissionRates, states, pop, rf, rp)
     rates = initialize(EventRates, tr, states, pop, rf, rp)
-    events = Events{T}(states)
+    events = Events{T}(states, start_time = time)
     net = TransmissionNetwork(pop.individuals)
-    return new{T}(time, 0, pop, rf, rp, copy(states), tr, rates, events, net)
+    return new{T}(time, time, 0, pop, rf, rp, copy(states), tr, rates, events, net)
   end
 
   function Simulation(pop::Population,
@@ -53,7 +54,7 @@ mutable struct Simulation{T <: EpidemicModel}
     rates = initialize(EventRates, tr, states, pop, rf, rp)
     events = Events{T}(states)
     net = TransmissionNetwork(pop.individuals)
-    return new{T}(0.0, 0, pop, rf, rp, copy(states), tr, rates, events, net)
+    return new{T}(0.0, 0.0, 0, pop, rf, rp, copy(states), tr, rates, events, net)
   end
 end
 
