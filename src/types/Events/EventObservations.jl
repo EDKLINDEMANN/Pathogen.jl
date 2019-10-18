@@ -1,44 +1,57 @@
-mutable struct EventObservations{T <: EpidemicModel}
-  infection::Vector{Float64}
-  removal::Vector{Float64}
+struct EventObservations{M <: ILM}
+  infection::Union{Nothing, Vector{Float64}}
+  removal::Union{Nothing, Vector{Float64}}
+  seq::Union{Nothing, Vector{Union{Nothing, GeneticSeq}}}
   individuals::Int64
 
-  function EventObservations{T}(infection::V, removal::V) where {V<:Vector{Float64}, T <: Union{SEIR, SIR}}
-    if length(infection) != length(removal)
-      @error "Length of infection and removal times must be equal"
-    end
-    return new{T}(infection, removal, length(infection))
+  function EventObservations{M}(in::VF,
+                                re::VF,
+                                seq::VG) where {
+                                VF <: Vector{Float64},
+                                G  <: GeneticSeq,
+                                VG <: Vector{G},
+                                S  <: Union{SEIR, SIR},
+                                M  <: PhyloILM{S}}
+  if length(unique(length.([in, re, seq])) != 1)
+    throw(DimensionMismatch("Observation vector lengths do not match"))
+  end
+    return new{M}(in, re, seq, length(in))
   end
 
-  function EventObservations{T}(infection::V) where {V<:Vector{Float64}, T <: Union{SEI, SI}}
-    x = new{T}()
-    x.infection = infection
-    x.individuals = length(infection)
-    return x
+  function EventObservations{M}(in::VF,
+                                re::VF) where {
+                                VF <: Vector{Float64},
+                                S  <: Union{SEIR, SIR},
+                                M  <: TNILM{S}}
+  if length(unique(length.([in, re])) != 1)
+    throw(DimensionMismatch("Observation vector lengths do not match"))
+  end
+    return new{M}(in, re, nothing, length(in))
   end
 
-  function EventObservations{T}(infection::Array{Float64, 2}) where T <: Union{SEI, SI}
-    if size(i, 2) != 1
-      @error "Invalid Array dimensions for observations of a $T model"
-    end
-    x = new{T}()
-    x.infection = infection[:,1]
-    x.individuals = size(infection, 1)
-    return x
+  function EventObservations{M}(in::Vector{Float64},
+                                seq::VG) where {
+                                G  <: GeneticSeq,
+                                VG <: Vector{G},
+                                S  <: Union{SEI, SI},
+                                M  <: PhyloILM{S}}
+  if length(unique(length.([in, seq])) != 1)
+    throw(DimensionMismatch("Observation vector lengths do not match"))
+  end
+    return new{M}(in, nothing, seq, length(in))
   end
 
-  function EventObservations{T}(ir::Array{Float64, 2}) where T <: Union{SEIR, SIR}
-    if size(i, 2) != 2
-      @error "Invalid Array dimensions for observations of a $T model"
-    end
-    x = new{T}()
-    x.infection = ir[:, 1]
-    x.removal = ir[:, 2]
-    x.individuals = size(ir, 1)
-    return x
+  function EventObservations{M}(in::Vector{Float64}) where {
+                                S  <: Union{SEI, SI},
+                                M  <: TNILM{S}}
+    return new{M}(in, nothing, nothing, length(in))
   end
 end
 
-function Base.show(io::IO, x::EventObservations{T}) where T <: EpidemicModel
-  return print(io, "$T model observations (n=$(x.individuals))")
+
+function Base.show(io::IO,
+                   x::EventObservations{M}) where {
+                   S <: DiseaseStateSequence,
+                   M <: ILM{S}}
+  print(io, "$M event observations (n=$(x.individuals))")
 end

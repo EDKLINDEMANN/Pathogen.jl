@@ -15,7 +15,7 @@ module Pathogen
   import ProgressMeter.next!
 
   # Types
-  include("types/EpidemicModel.jl")
+  include("types/ILM.jl")
   include("types/DiseaseState.jl")
   include("types/Population.jl")
   include("types/Events/Event.jl")

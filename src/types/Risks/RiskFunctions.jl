@@ -1,22 +1,32 @@
-struct RiskFunctions{T<: EpidemicModel}
-  sparks::Function
-  susceptibility::Function
-  infectivity::Function
-  transmissibility::Function
-  latency::Function
-  removal::Function
+struct RiskFunctions{M <: ILM}
+  sparks::Union{Nothing, Function}
+  susceptibility::Union{Nothing, Function}
+  infectivity::Union{Nothing, Function}
+  transmissibility::Union{Nothing, Function}
+  latency::Union{Nothing, Function}
+  removal::Union{Nothing, Function}
+
+  function RiskFunctions{M}(ϵ::F, Ωs::F, Ωi::F, κ::F, Ωl::F, Ωr::F) where {
+                            F <: Function, S <: SEIR, M <: ILM{S}}
+    return new(ϵ, Ωs, Ωi, κ, Ωl, Ωl)
+  end
+
+  function RiskFunctions{M}(ϵ::F, Ωs::F, Ωi::F, κ::F, Ωl::F) where {
+                            F <: Function, S <: SEI, M <: ILM{S}}
+    return new(ϵ, Ωs, Ωi, κ, Ωl, nothing)
+  end
+
+  function RiskFunctions{M}(ϵ::F, Ωs::F, Ωi::F, κ::F, Ωr::F) where {
+                            F <: Function, S <: SIR, M <: ILM{S}}
+    return new(ϵ, Ωs, Ωi, κ, nothing, Ωr)
+  end
+
+  function RiskFunctions{M}(ϵ::F, Ωs::F, Ωi::F, κ::F) where {
+                            F <: Function, S <: SI, M <: ILM{S}}
+    return new(ϵ, Ωs, Ωi, κ, nothing, nothing)
+  end
 end
 
-# Placeholder risk function
-function Ωx()
-  return NaN
-end
-
-# Outer constructors
-RiskFunctions{SEI}(ϵ, Ωs, Ωi, κ, Ωl) = RiskFunctions{SEI}(ϵ, Ωs, Ωi, κ, Ωl, Ωx)
-RiskFunctions{SIR}(ϵ, Ωs, Ωi, κ, Ωr) = RiskFunctions{SIR}(ϵ, Ωs, Ωi, κ, Ωx, Ωr)
-RiskFunctions{SI}(ϵ, Ωs, Ωi, κ) = RiskFunctions{SI}(ϵ, Ωs, Ωi, κ, Ωx, Ωx)
-
-function Base.show(io::IO, x::RiskFunctions{T}) where T <: EpidemicModel
-  return print(io, "$T model risk functions")
+function Base.show(io::IO, x::RiskFunctions{M}) where M <: ILM
+  return print(io, "$M risk functions")
 end

@@ -1,24 +1,34 @@
-mutable struct MarkovChain{T <: EpidemicModel}
+mutable struct MarkovChain{M <: ILM}
   iterations::Int64
-  events::Vector{Events{T}}
+  events::Vector{Events{M}}
   transmission_network::Vector{TransmissionNetwork}
-  risk_parameters::Vector{RiskParameters{T}}
+  risk_parameters::Vector{RiskParameters{M}}
+  substitutionmodel::Union{Nothing, Vector{NucleicAcidSubstitutionModel}}
   log_posterior::Vector{Float64}
   cov::OnlineStats.CovMatrix
 
-  function MarkovChain(events::Events{T}, network::TransmissionNetwork, risk_parameters::RiskParameters{T}, lp::Float64) where  T <: EpidemicModel
-    return new{T}(0, [events], [network], [risk_parameters], [lp], OnlineStats.CovMatrix())
+  function MarkovChain(e::Events{M},
+                       n::TransmissionNetwork,
+                       rp::RiskParameters{M},
+                       lp::Float64) where {
+                       M <: PhyloILM}
+    return new{M}(0, [e], [n], [rp], nothing, [lp], OnlineStats.CovMatrix())
   end
 
-  function MarkovChain{T}() where  T <: EpidemicModel
-    return new{T}(0, Events{T}[], TransmissionNetwork[], RiskParameters{T}[], Float64[], OnlineStats.CovMatrix())
+  function MarkovChain(e::Events{M},
+                       n::TransmissionNetwork,
+                       rp::RiskParameters{M},
+                       sm::NucleicAcidSubstitutionModel,
+                       lp::Float64) where {
+                       M <: PhyloILM}
+    return new{M}(0, [e], [n], [rp], [sm], [lp], OnlineStats.CovMatrix())
   end
 end
 
-function Base.length(x::MarkovChain{T}) where T <: EpidemicModel
+function Base.length(x::MarkovChain{M}) where M <: ILM
   return x.iterations
 end
 
-function Base.show(io::IO, x::MarkovChain{T}) where T <: EpidemicModel
-  return print(io, "$T model Markov chain (iterations = $(length(x)))")
+function Base.show(io::IO, x::MarkovChain{M}) where M <: ILM
+  return print(io, "$M Markov chain (iterations = $(length(x)))")
 end

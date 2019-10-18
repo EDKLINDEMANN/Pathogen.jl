@@ -53,20 +53,20 @@ _state_progressions[SEI] = [State_S; State_E; State_I]
 _state_progressions[SIR] = [State_S; State_I; State_R]
 _state_progressions[SI] = [State_S; State_I]
 
-function advance(x::DiseaseState, ::Type{T}) where T <: EpidemicModel
-  current_index = findfirst(Ref(x) .== _state_progressions[T])
+function advance(x::DiseaseState, ::Type{M}) where {S <: DiseaseStateSequence, M <: ILM{S}}
+  current_index = findfirst(Ref(x) .== _state_progressions[S])
   return _state_progressions[T][current_index + 1]
 end
 
-function regress(x::DiseaseState, ::Type{T}) where T <: EpidemicModel
-  current_index = findfirst(Ref(x) .== _state_progressions[T])
+function regress(x::DiseaseState, ::Type{M}) where {S <: DiseaseStateSequence, M <: ILM{S}}
+  current_index = findfirst(Ref(x) .== _state_progressions[S])
   return _state_progressions[T][current_index - 1]
 end
 
-function advance!(x::DiseaseState, ::Type{T}) where T <: EpidemicModel
-  x = advance(x, T)
+function advance!(x::DiseaseState, ::Type{M}) where {S <: DiseaseStateSequence, M <: ILM{S}}
+  x = advance(x, M)
 end
 
-function regress!(x::DiseaseState, ::Type{T}) where T <: EpidemicModel
-  x = regress(x, T)
+function regress!(x::DiseaseState, ::Type{M}) where {S <: DiseaseStateSequence, M <: ILM{S}}
+  x = regress(x, M)
 end

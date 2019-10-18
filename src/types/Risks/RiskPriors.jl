@@ -1,88 +1,46 @@
-mutable struct RiskPriors{T <: EpidemicModel}
-  sparks::Vector{UnivariateDistribution}
-  susceptibility::Vector{UnivariateDistribution}
-  infectivity::Vector{UnivariateDistribution}
-  transmissibility::Vector{UnivariateDistribution}
-  latency::Vector{UnivariateDistribution}
-  removal::Vector{UnivariateDistribution}
+struct RiskPriors{M <: ILM}
+  sparks::Union{Nothing, Vector{UnivariateDistribution}}
+  susceptibility::Union{Nothing, Vector{UnivariateDistribution}}
+  infectivity::Union{Nothing, Vector{UnivariateDistribution}}
+  transmissibility::Union{Nothing, Vector{UnivariateDistribution}}
+  latency::Union{Nothing, Vector{UnivariateDistribution}}
+  removal::Union{Nothing, Vector{UnivariateDistribution}}
 
-  function RiskPriors{T}(sp, su, in, tr, la, re) where {T <: SEIR}
-    return new{T}(sp, su, in, tr, la, re)
+  function RiskPriors{M}(ϵ::F, Ωs::F, Ωi::F, κ::F, Ωl::F, Ωr::F) where {
+                         F <: Vector{UnivariateDistribution}, S <: SEIR, M <: ILM{S}}
+    return new(ϵ, Ωs, Ωi, κ, Ωl, Ωl)
   end
 
-  function RiskPriors{T}(sp, su, in, tr, la) where {T <: SEI}
-    x = new{T}()
-    x.sparks = sp
-    x.susceptibility = su
-    x.infectivity = in
-    x.transmissibility = tr
-    x.latency = la
-    return x
+  function RiskPriors{M}(ϵ::F, Ωs::F, Ωi::F, κ::F, Ωl::F) where {
+                         F <: Vector{UnivariateDistribution}, S <: SEI, M <: ILM{S}}
+    return new(ϵ, Ωs, Ωi, κ, Ωl, nothing)
   end
 
-  function RiskPriors{T}(sp, su, in, tr, re) where {T <: SIR}
-    x = new{T}()
-    x.sparks = sp
-    x.susceptibility = su
-    x.infectivity = in
-    x.transmissibility = tr
-    x.removal = re
-    return x
+  function RiskPriors{M}(ϵ::F, Ωs::F, Ωi::F, κ::F, Ωr::F) where {
+                         F <: Vector{UnivariateDistribution}, S <: SIR, M <: ILM{S}}
+    return new(ϵ, Ωs, Ωi, κ, nothing, Ωr)
   end
 
-  function RiskPriors{T}(sp, su, in, tr) where {T <: SI}
-    x = new{T}()
-    x.sparks = sp
-    x.susceptibility = su
-    x.infectivity = in
-    x.transmissibility = tr
-    return x
+  function RiskPriors{M}(ϵ::F, Ωs::F, Ωi::F, κ::F) where {
+                         F <: Vector{UnivariateDistribution}, S <: SI, M <: ILM{S}}
+    return new(ϵ, Ωs, Ωi, κ, nothing, nothing)
   end
 end
 
-function Base.copy(x::RiskPriors{SEIR})
-  return RiskPriors{SEIR}(copy(x.sparks),
-                          copy(x.susceptibility),
-                          copy(x.infectivity),
-                          copy(x.transmissibility),
-                          copy(x.latency),
-                          copy(x.removal))
-end
-
-function Base.copy(x::RiskPriors{SEI})
-  return RiskPriors{SEI}(copy(x.sparks),
-                         copy(x.susceptibility),
-                         copy(x.infectivity),
-                         copy(x.transmissibility),
-                         copy(x.latency))
-end
-
-function Base.copy(x::RiskPriors{SIR})
-  return RiskPriors{SIR}(copy(x.sparks),
-                         copy(x.susceptibility),
-                         copy(x.infectivity),
-                         copy(x.transmissibility),
-                         copy(x.removal))
-end
-
-function Base.copy(x::RiskPriors{SI})
-  return RiskPriors{SI}(copy(x.sparks),
-                        copy(x.susceptibility),
-                        copy(x.infectivity),
-                        copy(x.transmissibility))
-end
-
-function _indices(x::RiskPriors{T}; zeros::Bool=true) where T <: EpidemicModel
+function _indices(x::RiskPriors{M};
+                  zeros::Bool=true) where {
+                  S <: DiseaseStateSequence,
+                  M <: ILM{S}}
   indices = [length(x.sparks)
              length(x.susceptibility)
              length(x.infectivity)
              length(x.transmissibility)]
-  if T in [SEIR; SEI]
+  if S in [SEIR; SEI]
     push!(indices, length(x.latency))
   elseif zeros
     push!(indices, 0)
   end
-  if T in [SEIR; SIR]
+  if S in [SEIR; SIR]
     push!(indices, length(x.removal))
   elseif zeros
     push!(indices, 0)
@@ -90,26 +48,26 @@ function _indices(x::RiskPriors{T}; zeros::Bool=true) where T <: EpidemicModel
   return cumsum(indices)
 end
 
-function Base.length(x::RiskPriors{T}) where T <: EpidemicModel
+function Base.length(x::RiskPriors{M}) where M <: ILM
   return _indices(x)[end]
 end
 
-function Base.getindex(x::RiskPriors{T},
-                       i::Int64) where T <: EpidemicModel
+function Base.getindex(x::RiskPriors{M},
+                       i::Int64) where M <: ILM
   indices = _indices(x, zeros = true)
   riskfunc = findfirst(i .<= indices)
   return getfield(x, riskfunc)[end - (indices[riskfunc] - i)]
 end
 
-function Base.setindex!(x::RiskPriors{T},
+function Base.setindex!(x::RiskPriors{M},
                         z::UnivariateDistribution,
-                        i::Int64) where T <: EpidemicModel
+                        i::Int64) where M <: ILM
   indices = _indices(x, zeros = true)
   riskfunc = findfirst(i .<= indices)
   getfield(x, riskfunc)[end - (indices[riskfunc] - i)] = z
   return x
 end
 
-function Base.show(io::IO, x::RiskPriors{T}) where T <: EpidemicModel
-  return print(io, "$T model risk function priors")
+function Base.show(io::IO, x::RiskPriors{M}) where M <: ILM
+  return print(io, "$M risk function priors")
 end

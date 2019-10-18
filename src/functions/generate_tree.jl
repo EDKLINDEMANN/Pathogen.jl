@@ -1,14 +1,20 @@
-function generate_tree(events::Events{T},
-                       observations::EventObservations{T},
-                       network::TransmissionNetwork) where {T <: EpidemicModel}
+function generate_tree(events::Events{M},
+                       obs::Vector{Float64},
+                       network::TransmissionNetwork) where {S <: DiseaseStateSequence, M <: ILM{S}}
+
+  if length(obs) != events.individuals
+    throw(ErrorException("Infection observation vector does not match number of individuals in population"))
+  end
   # Initialization
   trees = Tree[]
   local event_times
 
-  if T in [SEIR; SEI]
-    event_times = [events.exposure observations.infection]
-  elseif T in [SIR; SI]
-    event_times = [events.infection observations.infection]
+  if S in [SEIR; SEI]
+    event_times = [events.exposure obs]
+  elseif S in [SIR; SI]
+    event_times = [events.infection obs]
+  else
+    throw(ErrorException("Unrecognized DiseaseStateSequence"))
   end
 
   event_order = sortperm(event_times[:])

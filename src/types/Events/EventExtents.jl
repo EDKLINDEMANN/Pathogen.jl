@@ -1,33 +1,41 @@
-mutable struct EventExtents{T <: EpidemicModel}
-  exposure::Float64
-  infection::Float64
-  removal::Float64
+struct EventExtents{M <: ILM}
+  exposure::Union{Nothing, Float64}
+  infection::Union{Nothing, Float64}
+  removal::Union{Nothing, Float64}
 
-  function EventExtents{T}(e, i, r) where T <: SEIR
-    return new{T}(e, i, r)
+  function EventExtents{M}(ex::F,
+                           in::F,
+                           re::F) where {
+                           F <: Float64,
+                           S <: SEIR,
+                           M <: ILM{S}}
+    return new{M}(ex, in, re)
   end
 
-  function EventExtents{T}(e, i) where T <: SEI
-    x = new{T}()
-    x.exposure = e
-    x.infection = i
-    return x
+  function EventExtents{M}(ex::F,
+                           in::F) where {
+                           F <: Float64,
+                           S <: SEI,
+                           M <: ILM{S}}
+    return new{M}(ex, in, nothing)
   end
 
-  function EventExtents{T}(i, r) where T <: SIR
-    x = new{T}()
-    x.infection = i
-    x.removal = r
-    return x
+  function EventExtents{M}(in::F,
+                           re::F) where {
+                           F <: Float64,
+                           S <: SIR,
+                           M <: ILM{S}}
+    return new{M}(nothing, in, re)
   end
 
-  function EventExtents{T}(i) where T <: SI
-    x = new{T}()
-    x.infection = i
-    return x
+  function EventExtents{M}(in::F) where {
+                           F <: Float64,
+                           S <: SI,
+                           M <: ILM{S}}
+    return new{M}(nothing, in, nothing)
   end
 end
 
-function Base.show(io::IO, x::EventExtents{T}) where T <: EpidemicModel
-  print(io, "$T model event extents")
+function Base.show(io::IO, x::EventExtents{}) where {M <: ILM}
+  print(io, "$M event extents")
 end
