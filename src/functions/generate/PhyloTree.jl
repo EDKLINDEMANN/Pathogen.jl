@@ -1,12 +1,20 @@
 function generate_tree(events::Events{M},
                        obs::Vector{Float64},
-                       network::TransmissionNetwork) where {S <: DiseaseStateSequence, M <: ILM{S}}
+                       network::TransmissionNetwork,
+                       mrca::Float64) where {
+                       S <: DiseaseStateSequence,
+                       M <: ILM{S}}
 
   if length(obs) != events.individuals
     throw(ErrorException("Infection observation vector does not match number of individuals in population"))
+  elseif mrca > events.start_time
+    throw(ErrorException("Most recent common ancestor to external transmissions must be <= the start of an epidemic"))
   end
+
   # Initialization
-  trees = Tree[]
+  # trees = Tree[]
+  tree = Tree(mrca)
+  addnode!(tree) # Root/MRCA node
   local event_times
 
   if S in [SEIR; SEI]
@@ -17,13 +25,9 @@ function generate_tree(events::Events{M},
     throw(ErrorException("Unrecognized DiseaseStateSequence"))
   end
 
+  event_nodes = Array{Union{Nothing, Int64}, 2}(fill(nothing, size(event_times)))
   event_order = sortperm(event_times[:])
   event_lookup = CartesianIndices(size(event_times))
-
-  tree_id = Dict{Int64, Int64}()
-  transmission_node_id = Dict{Int64, Int64}()
-  observation_internal_node_id = Dict{Int64, Int64}()
-  observation_leaf_node_id = Dict{Int64, Int64}()
 
   pathways = [_pathway_from(i, network) for i = 1:events.individuals]
 
@@ -31,7 +35,7 @@ function generate_tree(events::Events{M},
   significant_transmissions = [event_times[i, 1] == -Inf || any(event_times[pathways[i], 2] .>= Ref(event_times[i, 1])) for i = 1:events.individuals]
 
   # Iterate through all events to build tree
-  for i = 1:length(event_order)
+  for i = eachindex(event_order)
 
     # Stop when no remaining valid event times
     isnan(event_times[event_order[i]]) && break
@@ -50,17 +54,12 @@ function generate_tree(events::Events{M},
         # For significant external transmission events...
         if network.external[event_individual]
           @debug "Event $i is a significant external transmission"
+          parent_node = 1
+          branch_length = mrca - event_times[event_order[i]]
+          branch!(tree, parent_node, branch_length)
 
-          # Add a new tree and a node
-          tree = length(trees) + 1
-          height = event_times[event_order[i]]
-          node = 1
-
-          push!(trees, Tree(height))
-          addnode!(trees[tree])
-
-          tree_id[event_individual] = tree
-          transmission_node_id[event_individual] = node
+          # Record tree and node ID
+          event_nodes[event_order[i]] = length(tree.nodes)
 
         # For other significant transmission events...
         else
@@ -72,16 +71,14 @@ function generate_tree(events::Events{M},
           if source == nothing
             @debug "Event $i is an initial condition"
 
-            # Add a new tree and a node
-            tree = length(trees) + 1
-            height = events.start_time
-            node = 1
+            parent_node = 1
+            branch_length = mrca - events.start_time
 
-            push!(trees, Tree(height))
-            addnode!(trees[tree])
+            # Add branch and node
+            branch!(tree, parent_node, branch_length)
 
-            tree_id[event_individual] = tree
-            transmission_node_id[event_individual] = node
+            # Record node id
+            event_nodes[event_order[i]] = length(tree.nodes)
 
           # Previous significant transmissions from this source of transmission
           else
@@ -94,14 +91,12 @@ function generate_tree(events::Events{M},
 
               # When there have been prior transmissions from this undetected source
               if length(source_prior_transmissions) > 0
-                tree = tree_id[source]
-                parentnode = transmission_node_id[source_prior_transmissions[argmax(event_times[source_prior_transmissions, 1])]]
+                parent_node = event_nodes[source_prior_transmissions[argmax(event_times[source_prior_transmissions, 1])], 1]
                 branch_length = event_times[event_order[i]] - maximum(event_times[source_prior_transmissions, 1])
 
               # When there have not been any prior transmissions from this undetected source
               else
-                tree = tree_id[source]
-                parentnode = transmission_node_id[source]
+                parent_node = event_nodes[source, 1]
                 branch_length = event_times[event_order[i]] - event_times[source, 1]
               end
 
@@ -109,23 +104,22 @@ function generate_tree(events::Events{M},
             else
               # And detection of source of transmission is most recent, relevant event...
               if length(source_prior_transmissions) == 0 || all(event_times[source, 2] .> event_times[source_prior_transmissions, 1])
-                tree = tree_id[source]
-                parentnode = observation_internal_node_id[source]
+
+                # Determine parent node of the observation leaf node
+                parent_node = parentnode(tree, event_nodes[source, 2])
                 branch_length = event_times[event_order[i]] - event_times[source, 2]
 
               # Or some prior transmission is most recent, relevant event...
               else
-                tree = tree_id[source]
-                parentnode = transmission_node_id[source_prior_transmissions[argmax(event_times[source_prior_transmissions, 1])]]
+                parent_node = event_nodes[source_prior_transmissions[argmax(event_times[source_prior_transmissions, 1])], 1]
                 branch_length = event_times[event_order[i]] - maximum(event_times[source_prior_transmissions, 1])
               end
             end
-            # Add branch and node to tree
-            branch!(trees[tree], parentnode, branch_length)
+            # Add branch and node
+            branch!(tree, parent_node, branch_length)
 
-            # Record tree and node ID
-            tree_id[event_individual] = tree
-            transmission_node_id[event_individual] = length(trees[tree].nodes)
+            # Record node id
+            event_nodes[event_order[i]] = length(tree.nodes)
           end
         end
       else
@@ -139,35 +133,35 @@ function generate_tree(events::Events{M},
       prior_transmissions = findall(network.internal[event_individual, :][:] .&
                             (event_times[:, 1] .< event_times[event_order[i]]) .&
                             significant_transmissions)
-      if length(prior_transmissions) > 0
-        tree = tree_id[event_individual]
 
-        # Parent node is the internal node associated with the final pre-observation transmission
-        parentnode = transmission_node_id[prior_transmissions[argmax(event_times[prior_transmissions, 1])]]
+      # Parent node is the internal node associated with the final pre-observation transmission
+      if length(prior_transmissions) > 0
+        parent_node = event_nodes[prior_transmissions[argmax(event_times[prior_transmissions, 1])], 1]
         branch_length = event_times[event_order[i]] - maximum(event_times[prior_transmissions, 1])
 
       # Individual has not transmitted to others prior to being observed as infected
       else
-        tree = tree_id[event_individual]
-        parentnode = transmission_node_id[event_individual]
+        parent_node = event_nodes[event_individual, 1]
         branch_length = event_times[event_order[i]] - event_times[event_individual, 1]
       end
 
       # Individual goes on to have significant transmissions
       if any(network.internal[event_individual, :][:] .& (event_times[:, 1] .>= event_times[event_order[i]]) .& significant_transmissions)
-        branch!(trees[tree], parentnode, branch_length)
-        observation_internal_node_id[event_individual] = length(trees[tree].nodes)
 
-        # Add zero-length branch so observation event is a leaf node
-        branch!(trees[tree], observation_internal_node_id[event_individual], 0.)
+        # Internal node for observation
+        branch!(tree, parent_node, branch_length)
+
+        # Add zero-length branch so observation event will be a leaf node
+        branch!(tree, length(tree.nodes), 0.)
 
       # Individual does not go one to have any significant transmissions
+      # so will surely be a leaf node
       else
-        branch!(trees[tree], parentnode, branch_length)
+        branch!(tree, parent_node, branch_length)
       end
-      # Record node ID
-      observation_leaf_node_id[event_individual] = length(trees[tree].nodes)
+      # Record leaf node id
+      event_nodes[event_order[i]] = length(tree.nodes)
     end
   end
-  return trees, tree_id, observation_leaf_node_id
+  return trees, event_nodes[:,2]
 end

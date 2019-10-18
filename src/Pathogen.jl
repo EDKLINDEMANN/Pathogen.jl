@@ -39,8 +39,13 @@ module Pathogen
   include("functions/_count_by_state.jl")
   include("functions/_accept.jl")
   include("functions/_bounds.jl")
-  include("functions/generate.jl")
-  include("functions/generate_tree.jl")
+
+  include("functions/generate/Event.jl")
+  include("functions/generate/Events.jl")
+  include("functions/generate/Transmission.jl")
+  include("functions/generate/PhyloTree.jl")
+  include("functions/generate/RiskParameters.jl")
+
   include("functions/initialize.jl")
   include("functions/observe.jl")
   include("functions/update!.jl")
