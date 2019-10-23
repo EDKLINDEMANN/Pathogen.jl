@@ -40,19 +40,28 @@ module Pathogen
   include("functions/_accept.jl")
   include("functions/_bounds.jl")
 
+  # Generate functions
   include("functions/generate/Event.jl")
   include("functions/generate/Events.jl")
   include("functions/generate/Transmission.jl")
   include("functions/generate/PhyloTree.jl")
   include("functions/generate/RiskParameters.jl")
+  include("functions/generate/NucleicAcidSubstitutionModel.jl")
 
-  include("functions/initialize.jl")
+  # Logprior functions
+  include("functions/logprior/RiskParameters.jl")
+  include("functions/logprior/NucleicAcidSubstitutionModel.jl")
+
+  # Initialize functions
+  include("functions/initialize/TransmissionRates.jl")
+  include("functions/initialize/EventRates.jl")
+  include("functions/initialize/MarkovChain.jl")
+
   include("functions/observe.jl")
   include("functions/update!.jl")
   include("functions/next!.jl")
   include("functions/simulate!.jl")
   include("functions/loglikelihood.jl")
-  include("functions/logpriors.jl")
   include("functions/start!.jl")
   include("functions/iterate!.jl")
 

@@ -99,7 +99,7 @@ function next!(mc::MarkovChain{T},
       proposed_events_array = new_events_array
       proposed_params = generate(RiskParameters{T}, new_params, Σ)
     end
-    proposed_lprior = logpriors(proposed_params, mcmc.risk_priors)
+    proposed_lprior = logprior(proposed_params, mcmc.risk_priors)
     # Based on the logprior and competiting MCMC iteration, this loglikelihood is required for acceptance
     # Calculating this in advance allows us to cut loglikelihood calculation short if it goes below threshold
     ll_acceptance_threshold = log(rand()) + new_lposterior - proposed_lprior

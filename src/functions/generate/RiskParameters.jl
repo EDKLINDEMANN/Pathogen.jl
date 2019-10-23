@@ -1,5 +1,3 @@
-
-
 function generate(::Type{RiskParameters{M}},
                   rpriors::RiskPriors{M}) where {
                   S <: DiseaseStateSequence,
