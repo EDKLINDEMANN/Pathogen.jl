@@ -5,14 +5,15 @@ mutable struct MarkovChain{M <: ILM}
   risk_parameters::Vector{RiskParameters{M}}
   substitutionmodel::Union{Nothing, Vector{NucleicAcidSubstitutionModel}}
   log_posterior::Vector{Float64}
-  cov::OnlineStats.CovMatrix
+  Σrp::Union{Nothing, OnlineStats.CovMatrix}
+  Σsm::Union{Nothing, OnlineStats.CovMatrix}
 
   function MarkovChain(e::Events{M},
                        n::TransmissionNetwork,
                        rp::RiskParameters{M},
                        lp::Float64) where {
-                       M <: PhyloILM}
-    return new{M}(0, [e], [n], [rp], nothing, [lp], OnlineStats.CovMatrix())
+                       M <: TNILM}
+    return new{M}(0, [e], [n], [rp], nothing, [lp], OnlineStats.CovMatrix(), nothing)
   end
 
   function MarkovChain(e::Events{M},
@@ -21,7 +22,7 @@ mutable struct MarkovChain{M <: ILM}
                        sm::NucleicAcidSubstitutionModel,
                        lp::Float64) where {
                        M <: PhyloILM}
-    return new{M}(0, [e], [n], [rp], [sm], [lp], OnlineStats.CovMatrix())
+    return new{M}(0, [e], [n], [rp], [sm], [lp], OnlineStats.CovMatrix(), OnlineStats.CovMatrix())
   end
 end
 

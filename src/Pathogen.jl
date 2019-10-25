@@ -57,6 +57,15 @@ module Pathogen
   include("functions/initialize/EventRates.jl")
   include("functions/initialize/MarkovChain.jl")
 
+  # Next! functions
+  include("functions/next!/Simulation.jl")
+  include("functions/next!/MarkovChain.jl")
+  include("functions/next!/MCMC.jl")
+
+  # Iterate functions
+  include("functions/iterate/MarkovChain.jl")
+  include("functions/iterate/MCMC.jl")
+
   include("functions/observe.jl")
   include("functions/update!.jl")
   include("functions/next!.jl")
