@@ -55,12 +55,12 @@ _state_progressions[SI] = [State_S; State_I]
 
 function advance(x::DiseaseState, ::Type{M}) where {S <: DiseaseStateSequence, M <: ILM{S}}
   current_index = findfirst(Ref(x) .== _state_progressions[S])
-  return _state_progressions[T][current_index + 1]
+  return _state_progressions[S][current_index + 1]
 end
 
 function regress(x::DiseaseState, ::Type{M}) where {S <: DiseaseStateSequence, M <: ILM{S}}
   current_index = findfirst(Ref(x) .== _state_progressions[S])
-  return _state_progressions[T][current_index - 1]
+  return _state_progressions[S][current_index - 1]
 end
 
 function advance!(x::DiseaseState, ::Type{M}) where {S <: DiseaseStateSequence, M <: ILM{S}}

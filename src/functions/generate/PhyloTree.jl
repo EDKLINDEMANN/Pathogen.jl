@@ -1,9 +1,10 @@
-function generate_tree(events::Events{M},
-                       obs::Vector{Float64},
-                       network::TransmissionNetwork,
-                       mrca::Float64) where {
-                       S <: DiseaseStateSequence,
-                       M <: ILM{S}}
+function generate(::Type{PhyloTree},
+                  events::Events{M},
+                  obs::Vector{Float64},
+                  network::TransmissionNetwork,
+                  mrca::Float64) where {
+                  S <: DiseaseStateSequence,
+                  M <: ILM{S}}
 
   if length(obs) != events.individuals
     throw(ErrorException("Infection observation vector does not match number of individuals in population"))
@@ -163,5 +164,5 @@ function generate_tree(events::Events{M},
       event_nodes[event_order[i]] = length(tree.nodes)
     end
   end
-  return trees, event_nodes[:,2]
+  return tree, event_nodes[:,2]
 end

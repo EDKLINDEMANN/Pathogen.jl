@@ -53,5 +53,5 @@ function Base.getindex(x::EventRates{M}, new_states::Vector{DiseaseState}) where
 end
 
 function Base.sum(x::EventRates{T}) where M <: ILM
-  return sum([sum(x[i]) for i in _state_progressions[T][2:end]])
+  return sum([sum(x[i]) for i in _state_progressions[S][2:end]])
 end

@@ -20,27 +20,25 @@ function initialize(::Type{MarkovChain},
                                          mcmc.starting_states,
                                          early_decision_value = max_lposterior - lprior)
     if M <: PhyloILM
-      trees, tree_id, obs_leaf_node_id = generate_tree(events, mcmc.event_observations, network)
       sm = generate(mcmc.substitution_model, substitution_model_priors)
-      for i = eachindex(trees)
-        tree_id
-        loglikelihood(trees[i], sm, node_data)
-
-
-
-  trees, tree_id, obs_leaf_node_id = generate_tree(sim.events,
-                                                   infection,
-                                                   sim.transmission_network)
-  seq_full = [simulate(RNASeq, t, sim.substitution_model, seq_len) for t in trees]
-  seq_obs = [isnan(infection[i])? nothing | seq_full[tree_id[i]][observation_leaf_node_id] for i = eachindex(infection)]
-
-
+      lprior += logprior(sm, substitution_model_priors)
+      tree, obs_nodes = generate(events, mcmc.event_observations, network)
+      leaf_data = Dict{Int64, GeneticSeq}()
+      for k = eachindex(obs_nodes)
+        if !isnothing(obs_nodes[k])
+          leaf_data[obs_nodes[k]] = mcmc.event_observations.seq[k]
+        end
+      end
+      llikelihood += loglikelihood(tree, sm, leaf_data)
     end
-
     lposterior = llikelihood + lprior
 
     if lposterior > max_lposterior
-      markov_chain = MarkovChain(events, network, rparams, lposterior)
+      if M <: TNILM
+        markov_chain = MarkovChain(events, network, rparams, sm, lposterior)
+      elseif M <: PhyloILM
+        markov_chain = MarkovChain(events, network, rparams, lposterior)
+      end
       max_lposterior = lposterior
     end
     put!(progress_channel, true)
@@ -74,9 +72,25 @@ function initialize(::Type{MarkovChain},
                                          mcmc.population,
                                          mcmc.starting_states,
                                          early_decision_value = max_lposterior - lprior)
+    if M <: PhyloILM
+      sm = generate(mcmc.substitution_model, substitution_model_priors)
+      lprior += logprior(sm, substitution_model_priors)
+      tree, obs_nodes = generate(events, mcmc.event_observations, network)
+      leaf_data = Dict{Int64, GeneticSeq}()
+      for k = eachindex(obs_nodes)
+        if !isnothing(obs_nodes[k])
+          leaf_data[obs_nodes[k]] = mcmc.event_observations.seq[k]
+        end
+      end
+      llikelihood += loglikelihood(tree, sm, leaf_data)
+    end
     lposterior = llikelihood + lprior
     if lposterior > max_lposterior
-      markov_chain = MarkovChain(events, network, rparams, lposterior)
+      if M <: TNILM
+        markov_chain = MarkovChain(events, network, rparams, sm, lposterior)
+      elseif M <: PhyloILM
+        markov_chain = MarkovChain(events, network, rparams, lposterior)
+      end
       max_lposterior = lposterior
     end
   end

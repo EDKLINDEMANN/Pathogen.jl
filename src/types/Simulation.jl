@@ -31,7 +31,7 @@ mutable struct Simulation{M <: ILM}
     @debug "Initializing $M Simulation with the following starting states:" states
     if length(states) != pop.individuals
       @error "Length of initial disease state vector must match number of individuals"
-    elseif !all(in.(states, Ref(_state_progressions[T])))
+    elseif !all(in.(states, Ref(_state_progressions[S])))
       @error "All states in initial disease state vector must be valid within specified epidemic model"
     end
     tr = initialize(TransmissionRates, states, pop, rf, rp)
@@ -48,7 +48,7 @@ mutable struct Simulation{M <: ILM}
     @debug "Initializing $M Simulation with the following starting states:" states
     if length(states) != pop.individuals
       @error "Length of initial disease state vector must match number of individuals"
-    elseif !all(in.(states, Ref(_state_progressions[T])))
+    elseif !all(in.(states, Ref(_state_progressions[S])))
       @error "All states in initial disease state vector must be valid within specified epidemic model"
     end
     tr = initialize(TransmissionRates, states, pop, rf, rp)

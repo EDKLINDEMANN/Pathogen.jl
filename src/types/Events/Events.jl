@@ -137,8 +137,8 @@ function Events{M}(x::Vector{DiseaseState};
                    M <: ILM{S}}
   events = Events{T}(length(x), start_time = start_time)
   for i = 1:length(x)
-    if x[i] in _state_progressions[T]
-      for j = _state_progressions[T][2:findfirst(Ref(x[i]) .== _state_progressions[T])]
+    if x[i] in _state_progressions[S]
+      for j = _state_progressions[S][2:findfirst(Ref(x[i]) .== _state_progressions[S])]
         events[j][i] = -Inf
       end
     else

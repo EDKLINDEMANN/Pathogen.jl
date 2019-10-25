@@ -1,0 +1,268 @@
+function next!(mc::MarkovChain{M},
+               mcmc::MCMC{M},
+               Σ::Array{Float64, 2},
+               σ::Float64;
+               condition_on_network::Bool=false,
+               event_batches::Int64=1) where {
+               S <: DiseaseStateSequence,
+               M <: TNILM{S}}
+  # Initialize
+  new_events = mc.events[end]
+  new_events_array = new_events[_state_progressions[S][2:end]]
+  new_params = mc.risk_parameters[end]
+  new_network = mc.transmission_network[end]
+  new_lposterior = mc.log_posterior[end]
+  # Randomize event time augmentation
+  event_indices = findall(new_events_array[:] .> -Inf)
+  aug_order = sample(event_indices, length(event_indices), replace=false)
+  @debug "$(length(aug_order)) events to augment"
+  if event_batches < 0
+    @error "Cannot have negative amount of event batches"
+  end
+  if event_batches > length(aug_order)
+    @warn "More event batches than there are events to augment ($(event_batches) > $(length(aug_order))), setting to maximum ($(length(aug_order)))"
+    event_batches = length(aug_order)
+  end
+  batch_size = fld(length(aug_order), event_batches)
+  @debug "Performing data augmentation in batches of $batch_size events at a time"
+  for i = 1:(event_batches + 1)
+    if i <= event_batches
+      for j = (batch_size*(i-1) + 1):minimum([(batch_size*i + 1); length(aug_order)])
+        id, state_index = Tuple(CartesianIndices((new_events.individuals,
+                                            length(_state_progressions[S][2:end])))[aug_order[j]])
+        new_state = _state_progressions[S][state_index+1]
+        time = new_events[new_state][id]
+        # Conditioning on network means that only event times valid under current network will be proposed. This is useful for models which may have additional contributions to the posterior based on network, and require more modest proposals (e.g. phylodynamic models).
+        if condition_on_network
+          proposed_event = generate(Event,
+                                    Event{M}(time, id, new_state),
+                                    σ,
+                                    mcmc.event_extents,
+                                    mcmc.event_observations,
+                                    new_events,
+                                    new_network)
+        else
+          proposed_event = generate(Event,
+                                    Event{M}(time, id, new_state),
+                                    σ,
+                                    mcmc.event_extents,
+                                    mcmc.event_observations,
+                                    new_events)
+        end
+        # For the first event of batch, we'll create an events array from current Markov chain position
+        # For other events in batch, we'll update proposal itself
+        if j == (batch_size*(i-1) + 1)
+          proposed_events_array = reshape([new_events_array[1:(aug_order[j]-1)]
+                                           proposed_event.time
+                                           new_events_array[(aug_order[j]+1):end]],
+                                          size(new_events_array))
+        else
+          proposed_events_array = reshape([proposed_events_array[1:(aug_order[j]-1)]
+                                           proposed_event.time
+                                           proposed_events_array[(aug_order[j]+1):end]],
+                                          size(new_events_array))
+        end
+        # Only need to generate new `Events` on last event of batch
+        if j == minimum([(batch_size*i + 1); length(aug_order)])
+          proposed_events = Events{M}(proposed_events_array)
+        end
+      end
+      proposed_params = new_params
+    else
+      # Propose new risk parameters
+      proposed_events = new_events
+      proposed_events_array = new_events_array
+      proposed_params = generate(RiskParameters{M}, new_params, Σ)
+    end
+    proposed_lprior = logprior(proposed_params, mcmc.risk_priors)
+    # Based on the logprior and competiting MCMC iteration, this loglikelihood is required for acceptance
+    # Calculating this in advance allows us to cut loglikelihood calculation short if it goes below threshold
+    ll_acceptance_threshold = log(rand()) + new_lposterior - proposed_lprior
+    if ll_acceptance_threshold < Inf
+      proposed_llikelihood = loglikelihood(proposed_params,
+                                          mcmc.risk_functions,
+                                          proposed_events,
+                                          mcmc.population,
+                                          mcmc.starting_states,
+                                          transmission_network_output = false,
+                                          early_decision_value = ll_acceptance_threshold)
+      proposed_lposterior = proposed_lprior + proposed_llikelihood
+    else
+      proposed_llikelihood = -Inf
+      proposed_lposterior = -Inf
+    end
+    if proposed_llikelihood >= ll_acceptance_threshold
+      @debug "MCMC proposal accepted (acceptance probability = $(round(min(1.0, exp(proposed_lposterior - new_lposterior)), digits=3)))"
+      new_params = proposed_params
+      new_events = proposed_events
+      new_events_array = proposed_events_array
+      new_lposterior = proposed_lposterior
+    else
+      @debug "next!: MCMC proposal rejected (acceptance probability = $(round(min(1.0, exp(proposed_lposterior - new_lposterior)), digits=3)))"
+    end
+  end
+  mc.iterations += 1
+  new_network = loglikelihood(new_params,
+                              mcmc.risk_functions,
+                              new_events,
+                              mcmc.population,
+                              mcmc.starting_states,
+                              loglikelihood_output = false,
+                              transmission_network_output = true)
+  push!(mc.events, new_events)
+  push!(mc.transmission_network, new_network)
+  push!(mc.risk_parameters, new_params)
+  push!(mc.log_posterior, new_lposterior)
+  return mc
+end
+
+
+function next!(mc::MarkovChain{M},
+               mcmc::MCMC{M},
+               Σrp::Array{Float64, 2},
+               Σsm::Array{Float64, 2},
+               σ::Float64;
+               event_batches::Int64=1) where {
+               S <: DiseaseStateSequence,
+               M <: PhyloILM{S}}
+  # Initialize
+  new_events = mc.events[end]
+  new_events_array = new_events[_state_progressions[S][2:end]]
+  new_rparams = mc.risk_parameters[end]
+  new_sm = mc.substitution_model[end]
+  new_network = mc.transmission_network[end]
+  new_lposterior = mc.log_posterior[end]
+  # Randomize event time augmentation
+  event_indices = findall(new_events_array[:] .> -Inf)
+  aug_order = sample(event_indices, length(event_indices), replace=false)
+  @debug "$(length(aug_order)) events to augment"
+  if event_batches < 0
+    @error "Cannot have negative amount of event batches"
+  end
+  if event_batches > length(aug_order)
+    @warn "More event batches than there are events to augment ($(event_batches) > $(length(aug_order))), setting to maximum ($(length(aug_order)))"
+    event_batches = length(aug_order)
+  end
+  batch_size = fld(length(aug_order), event_batches)
+  @debug "Performing data augmentation in batches of $batch_size events at a time"
+  for i = 1:(event_batches + 3)
+    if i <= event_batches
+      for j = (batch_size*(i-1) + 1):minimum([(batch_size*i + 1); length(aug_order)])
+        id, state_index = Tuple(CartesianIndices((new_events.individuals,
+                                            length(_state_progressions[S][2:end])))[aug_order[j]])
+        new_state = _state_progressions[S][state_index+1]
+        time = new_events[new_state][id]
+        # Conditioning on network means that only event times valid under current network will be proposed. This is useful for models which may have additional contributions to the posterior based on network, and require more modest proposals (e.g. phylodynamic models).
+        proposed_event = generate(Event,
+                                  Event{M}(time, id, new_state),
+                                  σ,
+                                  mcmc.event_extents,
+                                  mcmc.event_observations,
+                                  new_events,
+                                  new_network)
+
+        # For the first event of batch, we'll create an events array from current Markov chain position
+        # For other events in batch, we'll update proposal itself
+        if j == (batch_size*(i-1) + 1)
+          proposed_events_array = reshape([new_events_array[1:(aug_order[j]-1)]
+                                           proposed_event.time
+                                           new_events_array[(aug_order[j]+1):end]],
+                                          size(new_events_array))
+        else
+          proposed_events_array = reshape([proposed_events_array[1:(aug_order[j]-1)]
+                                           proposed_event.time
+                                           proposed_events_array[(aug_order[j]+1):end]],
+                                          size(new_events_array))
+        end
+        # Only need to generate new `Events` on last event of batch
+        if j == minimum([(batch_size*i + 1); length(aug_order)])
+          proposed_events = Events{M}(proposed_events_array)
+        end
+      end
+      proposed_rparams = new_rparams
+      proposed_sm = new_sm
+      proposed_network = new_network
+
+    elseif i == event_batches + 1
+      # Propose new risk parameters
+      proposed_events = new_events
+      proposed_events_array = new_events_array
+      proposed_rparams = generate(RiskParameters{M}, new_rparams, Σrp)
+      proposed_sm = new_sm
+      proposed_network = new_network
+
+    elseif i == event_batches + 2
+      # Propose new substitution model
+      proposed_events = new_events
+      proposed_events_array = new_events_array
+      proposed_rparams = new_rparams
+      proposed_sm = generate(NucleicAcidSubstitutionModel, new_sm, Σsm)
+      proposed_network = new_network
+    elseif i == event_batches + 3
+      proposed_events = new_events
+      proposed_events_array = new_events_array
+      proposed_rparams = new_rparams
+      proposed_sm = new_sm
+      proposed_network = loglikelihood(proposed_rparams,
+                                       mcmc.risk_functions,
+                                       proposed_events,
+                                       mcmc.population,
+                                       mcmc.starting_states,
+                                       loglikelihood_output = false,
+                                       transmission_network_output = true)
+    end
+      proposed_lprior = logprior(proposed_rparams, mcmc.risk_priors)
+      proposed_lprior += logprior(proposed_sm, mcmc.substitution_model_priors)
+
+    # Based on the logprior and competiting MCMC iteration, this loglikelihood is required for acceptance
+    # Calculating this in advance allows us to cut loglikelihood calculation short if it goes below threshold
+    ll_acceptance_threshold = log(rand()) + new_lposterior - proposed_lprior
+    if ll_acceptance_threshold < Inf
+      proposed_llikelihood = loglikelihood(proposed_rparams,
+                                           mcmc.risk_functions,
+                                           proposed_events,
+                                           mcmc.population,
+                                           mcmc.starting_states,
+                                           transmission_network_output = false,
+                                           early_decision_value = ll_acceptance_threshold)
+
+      if proposed_llikelihood >= ll_acceptance_threshold
+        tree, obs_nodes = generate(events, mcmc.event_observations, network)
+        leaf_data = Dict{Int64, GeneticSeq}()
+        for k = eachindex(obs_nodes)
+          if !isnothing(obs_nodes[k])
+            leaf_data[obs_nodes[k]] = mcmc.event_observations.seq[k]
+          end
+        end
+        proposed_llikelihood += loglikelihood(tree, sm, leaf_data)
+      end
+      proposed_lposterior = proposed_lprior + proposed_llikelihood
+    else
+      proposed_llikelihood = -Inf
+      proposed_lposterior = -Inf
+    end
+    if proposed_llikelihood >= ll_acceptance_threshold
+      @debug "MCMC proposal accepted (acceptance probability = $(round(min(1.0, exp(proposed_lposterior - new_lposterior)), digits=3)))"
+      new_rparams = proposed_rparams
+      new_events = proposed_events
+      new_events_array = proposed_events_array
+      new_lposterior = proposed_lposterior
+    else
+      @debug "next!: MCMC proposal rejected (acceptance probability = $(round(min(1.0, exp(proposed_lposterior - new_lposterior)), digits=3)))"
+    end
+  end
+  mc.iterations += 1
+  new_network = loglikelihood(new_rparams,
+                              mcmc.risk_functions,
+                              new_events,
+                              mcmc.population,
+                              mcmc.starting_states,
+                              loglikelihood_output = false,
+                              transmission_network_output = true)
+  push!(mc.events, new_events)
+  push!(mc.transmission_network, new_network)
+  push!(mc.risk_parameters, new_rparams)
+  push!(mc.substitution_model, new_sm)
+  push!(mc.log_posterior, new_lposterior)
+  return mc
+end

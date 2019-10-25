@@ -20,8 +20,8 @@ function loglikelihood(rp::RiskParameters{T},
   local last_event
   for i = 1:length(event_order)
     id, state_index = Tuple(CartesianIndices((events.individuals,
-                                              length(_state_progressions[T][2:end])))[event_order[i]])
-    new_state = _state_progressions[T][state_index+1]
+                                              length(_state_progressions[S][2:end])))[event_order[i]])
+    new_state = _state_progressions[S][state_index+1]
     time = s.events[new_state][id]
     if time == -Inf
       @debug "Skipping event $i" Event{T}(time, id, new_state)

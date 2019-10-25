@@ -11,7 +11,7 @@ struct Event{T <: ILM}
   end
 
   function Event{M}(time::Float64, id::Int64, new_state::DiseaseState) where M <: ILM
-    if !(new_state in _state_progressions[T])
+    if !(new_state in _state_progressions[S])
       throw(ErrorException("Invalid disease state provided for $(T) Epidemic Models.")
     end
     return new{T}(time, id, new_state)
